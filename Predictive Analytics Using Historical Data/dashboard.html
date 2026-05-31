@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predictive Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8eaf0;
+    --muted: #7a7e95;
+    --accent: #4f8ef7;
+    --green: #3dd68c;
+    --amber: #f4b942;
+    --coral: #f07060;
+    --purple: #a78bfa;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; }
+
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:38px; height:38px; border-radius:10px;
+    background: linear-gradient(135deg,#4f8ef7,#a78bfa);
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+  }
+  .logo h1 { font-size:18px; font-weight:600; letter-spacing:-0.3px; }
+  .logo p { font-size:12px; color:var(--muted); margin-top:1px; }
+  .badge {
+    font-size:11px; padding:4px 12px; border-radius:20px;
+    background:rgba(61,214,140,0.12); color:var(--green); border:1px solid rgba(61,214,140,0.25);
+  }
+
+  main { padding:32px 40px; max-width:1400px; margin:0 auto; }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+  .kpi {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:18px 20px;
+  }
+  .kpi-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:10px; }
+  .kpi-value { font-size:28px; font-weight:700; letter-spacing:-1px; }
+  .kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .kpi-delta { display:inline-block; font-size:11px; margin-top:6px; padding:2px 8px; border-radius:6px; }
+  .up   { background:rgba(61,214,140,0.12); color:var(--green); }
+  .down { background:rgba(240,112,96,0.12);  color:var(--coral); }
+
+  .grid-2 { display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px; }
+  .grid-equal { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:22px 24px;
+  }
+  .card-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .card-sub { font-size:11px; color:var(--muted); margin-bottom:18px; }
+
+  .chart-wrap { position:relative; width:100%; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:6px; margin-bottom:18px; }
+  .tab {
+    padding:5px 14px; border-radius:8px; font-size:12px; cursor:pointer;
+    border:1px solid var(--border); color:var(--muted); background:transparent;
+    transition: all 0.2s;
+  }
+  .tab.active { background:rgba(79,142,247,0.15); color:var(--accent); border-color:rgba(79,142,247,0.3); }
+
+  /* Forecast table */
+  .ftable { width:100%; font-size:12px; border-collapse:collapse; }
+  .ftable th { text-align:left; color:var(--muted); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--border); font-size:10px; text-transform:uppercase; letter-spacing:0.8px; }
+  .ftable td { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,0.03); }
+  .ftable tr:last-child td { border-bottom:none; }
+  .bar-cell { display:flex; align-items:center; gap:8px; }
+  .mini-bar { height:5px; border-radius:3px; background:linear-gradient(90deg,#4f8ef7,#a78bfa); }
+
+  /* Model comparison */
+  .model-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+  .model-row:last-child { border-bottom:none; }
+  .model-name { font-size:13px; font-weight:500; }
+  .model-meta { font-size:11px; color:var(--muted); margin-top:2px; }
+  .r2-bar-wrap { flex:1; margin:0 16px; }
+  .r2-bar-bg { height:6px; background:rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
+  .r2-bar-fill { height:100%; border-radius:3px; }
+  .r2-label { font-size:13px; font-weight:600; min-width:44px; text-align:right; }
+
+  /* Steps */
+  .steps { counter-reset:step; }
+  .step { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .step:last-child { border-bottom:none; }
+  .step-num {
+    width:24px; height:24px; border-radius:50%; flex-shrink:0;
+    background:rgba(79,142,247,0.15); color:var(--accent);
+    font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  }
+  .step-title { font-size:12px; font-weight:600; margin-bottom:3px; }
+  .step-desc { font-size:11px; color:var(--muted); line-height:1.6; }
+
+  footer { padding:20px 40px; border-top:1px solid var(--border); font-size:11px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <div>
+      <h1>Predictive Analytics Dashboard</h1>
+      <p>Forecasting Future Trends Using Historical Data</p>
+    </div>
+  </div>
+  <span class="badge">✓ Model Trained</span>
+</header>
+
+<main>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Dataset Size</div>
+      <div class="kpi-value" style="color:var(--accent)">48</div>
+      <div class="kpi-sub">Monthly observations (2021–2024)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Best Model R²</div>
+      <div class="kpi-value" style="color:var(--green)">0.5994</div>
+      <div class="kpi-sub">Linear Regression on test set</div>
+      <span class="kpi-delta up">↑ Acceptable fit</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Forecast Peak</div>
+      <div class="kpi-value" style="color:var(--purple)">333.6</div>
+      <div class="kpi-sub">Dec 2025 (projected units)</div>
+      <span class="kpi-delta up">↑ +19.8% vs last month</span>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Trend Direction</div>
+      <div class="kpi-value" style="color:var(--amber)">+74%</div>
+      <div class="kpi-sub">4-year overall growth</div>
+      <span class="kpi-delta up">↑ Sustained upward</span>
+    </div>
+  </div>
+
+  <!-- Main chart + forecast table -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Historical Sales + Model Predictions + 12-Month Forecast</div>
+      <div class="card-sub">Polynomial regression fit overlaid with future projection</div>
+      <div class="tabs" id="chartTabs">
+        <button class="tab active" onclick="switchChart('all',this)">Full View</button>
+        <button class="tab" onclick="switchChart('hist',this)">Historical Only</button>
+        <button class="tab" onclick="switchChart('forecast',this)">Forecast Only</button>
+      </div>
+      <div class="chart-wrap" style="height:300px;">
+        <canvas id="mainChart" role="img" aria-label="Line chart showing historical sales from 2021 to 2024 and forecast through 2025">Historical sales and forecast data</canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">12-Month Forecast</div>
+      <div class="card-sub">Jan 2025 – Dec 2025 projections</div>
+      <table class="ftable">
+        <thead>
+          <tr><th>Month</th><th>Forecast</th><th>Trend</th></tr>
+        </thead>
+        <tbody id="forecastBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Model comparison + residuals -->
+  <div class="grid-equal">
+    <div class="card">
+      <div class="card-title">Model Comparison</div>
+      <div class="card-sub">R² score on held-out test set (higher = better)</div>
+      <div id="modelRows"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Residuals (Test Set)</div>
+      <div class="card-sub">Actual vs predicted — smaller spread = better fit</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="residChart" role="img" aria-label="Scatter plot of residuals for linear regression">Residual plot</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Methodology -->
+  <div class="card">
+    <div class="card-title">Methodology</div>
+    <div class="card-sub">Project pipeline — from raw data to forecast</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div><div class="step-title">Data Generation & Loading</div><div class="step-desc">48 months of synthetic monthly sales (Jan 2021–Dec 2024) generated with realistic trend, seasonality, and noise. In practice, replace with real CSV/database data.</div></div></div>
+      <div class="step"><div class="step-num">2</div><div><div class="step-title">Cleaning & Preprocessing</div><div class="step-desc">Checked for missing values (none found). IQR-based outlier detection performed. Cyclic month encoding via sin/cos features to capture seasonality.</div></div></div>
+      <div class="step"><div class="step-num">3</div><div><div class="step-title">Train / Test Split</div><div class="step-desc">80/20 chronological split (38 train, 10 test). Shuffle disabled to prevent data leakage across time — critical for time-series evaluation.</div></div></div>
+      <div class="step"><div class="step-num">4</div><div><div class="step-title">Model Training</div><div class="step-desc">Two models compared: Linear Regression (baseline) and Polynomial Regression (degree 2). Both trained on time index + seasonal sin/cos features.</div></div></div>
+      <div class="step"><div class="step-num">5</div><div><div class="step-title">Evaluation</div><div class="step-desc">Metrics: MAE, RMSE, R² on test set. Linear Regression achieved R²=0.60; Polynomial achieved 0.26 — simpler model wins here (bias-variance tradeoff).</div></div></div>
+      <div class="step"><div class="step-num">6</div><div><div class="step-title">12-Month Forecast</div><div class="step-desc">Polynomial model extrapolated 12 months ahead (Jan–Dec 2025). Projections show continued upward trend with mild seasonality, peaking in Dec 2025 at ~333.6 units.</div></div></div>
+    </div>
+  </div>
+
+</main>
+
+<footer>Predictive Analytics Internship Project · Built with Python (scikit-learn, pandas, numpy) · Visualized with Chart.js</footer>
+
+<script>
+const hist = [103.97,112.72,130.16,143.67,130.77,127.28,135.61,122.95,109.56,118.81,117.27,128.4,147.89,144.48,157.14,172.95,170.49,177.62,161.67,151.47,171.0,158.62,167.48,166.69,187.56,206.63,207.69,226.41,219.75,218.73,210.08,223.54,205.12,197.92,219.47,214.28,239.54,236.02,252.23,270.94,276.42,268.39,259.93,252.27,239.36,246.58,255.16,278.46];
+const histLabels = ["Jan 2021","Feb 2021","Mar 2021","Apr 2021","May 2021","Jun 2021","Jul 2021","Aug 2021","Sep 2021","Oct 2021","Nov 2021","Dec 2021","Jan 2022","Feb 2022","Mar 2022","Apr 2022","May 2022","Jun 2022","Jul 2022","Aug 2022","Sep 2022","Oct 2022","Nov 2022","Dec 2022","Jan 2023","Feb 2023","Mar 2023","Apr 2023","May 2023","Jun 2023","Jul 2023","Aug 2023","Sep 2023","Oct 2023","Nov 2023","Dec 2023","Jan 2024","Feb 2024","Mar 2024","Apr 2024","May 2024","Jun 2024","Jul 2024","Aug 2024","Sep 2024","Oct 2024","Nov 2024","Dec 2024"];
+const polyFit = [103.2,116.27,127.46,134.23,135.51,132.11,126.18,120.25,116.44,116.2,120.32,128.85,140.79,153.98,165.57,173.02,175.21,172.83,167.86,162.71,159.41,159.39,163.51,171.92,183.8,197.11,209.09,217.22,220.33,218.96,214.96,210.59,207.8,208.0,212.1,220.41,232.22,245.65,258.02,266.84,270.85,270.5,267.47,263.88,261.6,262.01,266.11,274.3];
+const fcLabels = ["Jan 2025","Feb 2025","Mar 2025","Apr 2025","May 2025","Jun 2025","Jul 2025","Aug 2025","Sep 2025","Oct 2025","Nov 2025","Dec 2025"];
+const fcVals   = [286.1,299.6,312.4,321.9,326.8,327.5,325.4,322.6,320.8,321.4,325.5,333.6];
+const lrFit    = [99.46,112.37,123.48,130.78,133.3,131.33,126.39,120.77,116.95,116.93,121.7,130.95,143.18,156.09,167.2,174.5,177.02,175.06,170.11,164.49,160.67,160.66,165.43,174.68,186.91,199.82,210.92,218.23,220.74,218.78,213.84,208.21,204.4,204.38,209.15,218.4,230.63,243.54,254.65,261.95,264.47,262.5,257.56,251.94,248.12,248.1,252.87,262.12];
+
+// Main chart
+const allLabels = [...histLabels, ...fcLabels];
+const histNulls = new Array(histLabels.length).fill(null);
+const fcNulls   = new Array(histLabels.length).fill(null);
+
+let mainChart = new Chart(document.getElementById('mainChart'), {
+  type: 'line',
+  data: {
+    labels: allLabels,
+    datasets: [
+      { label: 'Actual Sales', data: [...hist, ...new Array(fcLabels.length).fill(null)], borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.08)', pointRadius:2, borderWidth:2, tension:0.3 },
+      { label: 'Poly Model Fit', data: [...polyFit, ...new Array(fcLabels.length).fill(null)], borderColor:'#a78bfa', backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, borderDash:[4,2], tension:0.3 },
+      { label: '2025 Forecast', data: [...new Array(histLabels.length).fill(null), ...fcVals], borderColor:'#3dd68c', backgroundColor:'rgba(61,214,140,0.08)', pointRadius:3, borderWidth:2, tension:0.3 }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ display:true, labels:{ color:'#7a7e95', font:{size:11}, boxWidth:12, boxHeight:12 } } },
+    scales:{
+      x:{ ticks:{ color:'#7a7e95', font:{size:9}, maxRotation:45, autoSkip:true, maxTicksLimit:16 }, grid:{ color:'rgba(255,255,255,0.04)' } },
+      y:{ ticks:{ color:'#7a7e95', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+
+function switchChart(mode, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const ds = mainChart.data.datasets;
+  if(mode==='all')      { ds[0].hidden=false; ds[1].hidden=false; ds[2].hidden=false; }
+  else if(mode==='hist'){ ds[0].hidden=false; ds[1].hidden=false; ds[2].hidden=true; }
+  else                  { ds[0].hidden=true;  ds[1].hidden=true;  ds[2].hidden=false; }
+  mainChart.update();
+}
+
+// Forecast table
+const tbody = document.getElementById('forecastBody');
+const maxFc = Math.max(...fcVals);
+fcLabels.forEach((m,i)=>{
+  const pct = Math.round(fcVals[i]/maxFc*100);
+  tbody.innerHTML += `<tr>
+    <td style="color:#e8eaf0">${m}</td>
+    <td style="color:#3dd68c;font-weight:600">${fcVals[i]}</td>
+    <td><div class="bar-cell"><div class="mini-bar" style="width:${pct}%"></div><span style="font-size:10px;color:#7a7e95">${pct}%</span></div></td>
+  </tr>`;
+});
+
+// Model comparison
+const models = [
+  { name:'Linear Regression', meta:'Baseline · 3 features', r2:0.5994, color:'#4f8ef7' },
+  { name:'Polynomial Regression', meta:'Degree 2 · 9 features', r2:0.2599, color:'#a78bfa' }
+];
+const mwrap = document.getElementById('modelRows');
+models.forEach(m=>{
+  const pct = Math.round(m.r2*100);
+  mwrap.innerHTML += `<div class="model-row">
+    <div><div class="model-name">${m.name}</div><div class="model-meta">${m.meta}</div></div>
+    <div class="r2-bar-wrap"><div class="r2-bar-bg"><div class="r2-bar-fill" style="width:${pct}%;background:${m.color}"></div></div></div>
+    <div class="r2-label" style="color:${m.color}">${m.r2}</div>
+  </div>`;
+});
+
+// Residuals chart (test set: indices 38-47)
+const testActual = hist.slice(38);
+const testPred   = lrFit.slice(38);
+const residuals  = testActual.map((a,i)=> parseFloat((a - testPred[i]).toFixed(2)));
+const testMonths = histLabels.slice(38);
+
+new Chart(document.getElementById('residChart'), {
+  type:'bar',
+  data:{
+    labels: testMonths,
+    datasets:[{
+      label:'Residual (Actual - Predicted)',
+      data: residuals,
+      backgroundColor: residuals.map(r=> r>=0 ? 'rgba(61,214,140,0.6)' : 'rgba(240,112,96,0.6)'),
+      borderColor: residuals.map(r=> r>=0 ? '#3dd68c' : '#f07060'),
+      borderWidth:1
+    }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ display:false } },
+    scales:{
+      x:{ ticks:{ color:'#7a7e95', font:{size:8}, maxRotation:45 }, grid:{ color:'rgba(255,255,255,0.03)' } },
+      y:{ ticks:{ color:'#7a7e95', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
